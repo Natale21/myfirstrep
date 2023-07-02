@@ -46,7 +46,8 @@ public class ManagedFileService {
         if(utente == null)
             throw new IllegalArgumentException("Utente inesistente");
 
-        if(utenteNonAutorizzato(utente, progetto))
+        List<ProgettoUtente> lista = progettoUtenteRepository.findProgettoUtenteByUtente(utente);
+        if(utenteNonAutorizzato(utente, progetto, lista))
             throw new IllegalArgumentException("Utente non autorizzato ad accedere al progetto");
 
         if(!blobService.containsContainer(nomeProgetto))
@@ -78,7 +79,8 @@ public class ManagedFileService {
             throw new IllegalArgumentException("Progetto inesistente");
         if(utente == null)
             throw new IllegalArgumentException("Utente inesistente");
-        if(utenteNonAutorizzato(utente, progetto))
+        List<ProgettoUtente> lista = progettoUtenteRepository.findProgettoUtenteByUtente(utente);
+        if(utenteNonAutorizzato(utente, progetto, lista))
             throw new IllegalArgumentException("Utente non autorizzato ad accedere al progetto");
 
         List<ManagedFile> files = managedFileRepository.findManagedFileByProgetto(progetto);
@@ -103,7 +105,8 @@ public class ManagedFileService {
         if(utente == null)
             throw new IllegalArgumentException("Utente inesistente");
 
-        if(utenteNonAutorizzato(utente, progetto))
+        List<ProgettoUtente> lista = progettoUtenteRepository.findProgettoUtenteByUtente(utente);
+        if(utenteNonAutorizzato(utente, progetto, lista))
             throw new IllegalArgumentException("Utente non autorizzato ad accedere al progetto");
 
         try{
@@ -116,7 +119,7 @@ public class ManagedFileService {
         file.setNome(multipartFile.getOriginalFilename());
         file.setCreatore(utente);
         file.setProgetto(progetto);
-        file.setDimensione(multipartFile.getSize());
+        file.setDimensione((int)multipartFile.getSize());
 
         managedFileRepository.saveAndFlush(file);
         progettoRepository.saveAndFlush(progetto);
@@ -147,14 +150,11 @@ public class ManagedFileService {
         if(utente == null)
             throw new IllegalArgumentException("Utente inesistente");
 
-        if(utenteNonAutorizzato(utente, progetto))
+        List<ProgettoUtente> lista = progettoUtenteRepository.findProgettoUtenteByUtente(utente);
+        if(utenteNonAutorizzato(utente, progetto, lista))
             throw new IllegalArgumentException("Utente non autorizzato ad accedere al progetto");
 
-        File file = blobService.downloadBlob(nomeProgetto, nomeFile);
-
-        byte[] buf = toByteArray(file);
-        ByteArrayOutputStream bufOutputStream = new ByteArrayOutputStream(buf.length);
-        bufOutputStream.write(buf, 0, buf.length);
+        ByteArrayOutputStream bufOutputStream = blobService.downloadBlob(nomeProgetto, nomeFile);
 
         response.setContentType("application/*");
         response.addHeader("Content-Disposition", "inline; filename=" + nomeFile);
@@ -163,8 +163,6 @@ public class ManagedFileService {
         bufOutputStream.writeTo(responseOutputStream);
         responseOutputStream.flush();
         responseOutputStream.close();
-
-        java.nio.file.Files.delete(file.toPath());
     }//downloadFile
 
     /**Metodo privato che converte un file in un array di byte
@@ -199,8 +197,8 @@ public class ManagedFileService {
      * @param lista l'elenco dei progetti a cui l'utente può accedere
      * @return true se l'utente non è autorizzato, false altrimenti
      * */
-    private boolean utenteNonAutorizzato(Utente utente, Progetto progetto){
+    private boolean utenteNonAutorizzato(Utente utente, Progetto progetto, List<ProgettoUtente> lista){
         return !progetto.getProprietario().equals(utente) &&
-                !contiene(progettoUtenteRepository.findProgettoUtenteByUtente(utente), progetto);
+                !contiene(lista, progetto);
     }//utenteNonAutorizzato
 }//ManagedFileService

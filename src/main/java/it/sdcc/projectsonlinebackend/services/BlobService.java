@@ -2,20 +2,28 @@ package it.sdcc.projectsonlinebackend.services;
 
 import com.azure.storage.blob.*;
 import com.azure.storage.blob.models.*;
+import it.sdcc.projectsonlinebackend.entities.ManagedFile;
+import it.sdcc.projectsonlinebackend.repositories.ManagedFileRepository;
+import it.sdcc.projectsonlinebackend.repositories.ProgettoRepository;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+
+import java.io.*;
 
 @Service
 public class BlobService {
     @Autowired
     private BlobServiceClient blobServiceClient;
+
+    @Autowired
+    private ManagedFileRepository managedFileRepository;
+
+    @Autowired
+    private ProgettoRepository progettoRepository;
 
     /**Crea un nuovo Blob Container, se non esiste già
      * @param nomeContainer il nome del container da creare*/
@@ -56,7 +64,7 @@ public class BlobService {
      * */
     public void uploadBlob(@NotNull String nomeContainer, @NotNull MultipartFile multipartFile) throws IOException {
         if(!containsContainer(nomeContainer))
-            throw new IllegalArgumentException("Progetto inesistente");
+            throw new IllegalArgumentException("Container inesistente");
         BlobClient blobClient = blobServiceClient.getBlobContainerClient(nomeContainer)
                 .getBlobClient(multipartFile.getOriginalFilename());
         blobClient.upload(multipartFile.getInputStream(), multipartFile.getSize(), true);
@@ -65,14 +73,16 @@ public class BlobService {
     /**Effettua lo scaricamento del file dallo storage.
      * @param nomeContainer il nome del container da cui scaricare il file
      * @param blobname il nome del blob da scaricare
-     * @return il file scaricato*/
-    public File downloadBlob(@NotNull String nomeContainer, @NotNull String blobname) throws IOException{
+     * @return lo stream per la scrittura nella risposta*/
+    public ByteArrayOutputStream downloadBlob(@NotNull String nomeContainer, @NotNull String blobname) throws IOException{
+        ManagedFile mf = managedFileRepository.findManagedFileByNomeAndProgetto(blobname, progettoRepository.findProgettoByNome(nomeContainer));
+        if(mf == null)
+            throw new IllegalArgumentException("File inesistente");
         BlobClient blobClient = blobServiceClient.getBlobContainerClient(nomeContainer)
                 .getBlobClient(blobname);
-        FileOutputStream fileOutputStream = new FileOutputStream("src/tmp/"+blobname);
-        blobClient.downloadStream(fileOutputStream);
-        fileOutputStream.close();
-        return new File("src/tmp/"+blobname);
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(mf.getDimensione());
+        blobClient.downloadStream(byteArrayOutputStream);
+        return byteArrayOutputStream;
     }//downloadBlob
 
     /**Cancella un file, se esiste.

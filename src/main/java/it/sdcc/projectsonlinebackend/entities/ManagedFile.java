@@ -22,7 +22,7 @@ public class ManagedFile implements Serializable {
 
     @Basic
     @Column(name = "dimensione")
-    private double dimensione;
+    private Integer dimensione;
 
     @ManyToOne
     @JoinColumn(name = "creatore")
@@ -39,7 +39,7 @@ public class ManagedFile implements Serializable {
         result = result * 59 + nome.hashCode();
         result = result * 59 + creatore.hashCode();
         result = result * 59 + progetto.hashCode();
-        result = (int) (result * 59 + dimensione);
+        result = result * 59 + dimensione;
         return result;
     }//hashCode
 
